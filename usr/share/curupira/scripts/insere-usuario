@@ -1,0 +1,257 @@
+#!/bin/bash
+
+# VERSAO 1.0
+# 10/04/2006
+
+grupo_padrao="Nivel1"             # grupo padrao para inclusao na base de dados
+dir_base="/etc/pykota"            # diretorio base do script
+editor_pykota=`which edpykota`    # localizacao do edpykota
+
+arquivo_log=/var/tmp/script_insersao.log
+
+
+###############################################################################
+# Funcoes
+
+# Exibe a ajuda e sai
+function ajuda() {
+  echo " as opcoes sao:
+  -h: exibe essa ajuda
+  -u nome-usuario  (login do usuario na rede)
+  -g grupo-usuario (grupo do usuario no curupira)
+  -e email-usuario (email do usuario)
+  -q quota-usuario (quota do usuario, -1 para quota infinita)
+
+Exemplo:
+$0 -u p523496 -e fulano@mail.caixa -g \"Nivel1\" -q -1
+
+  "
+  exit 0
+}
+
+
+# funcao que testa se o grupo existe no banco. 
+# (recebe como parametro o grupo)
+# retorna 0 caso exista e 1 caso contrario
+function testa_grupo() {
+  local fgrupo=$1
+  local res=""
+  
+  SQL="select id from groups where groupname='${fgrupo}';"
+  lin=`echo ${SQL} | psql -U pykotaadmin pykota | grep "^(" \
+  | sed 's/(\([[:digit:]]\).*/\1/'`
+
+  # caso nao haja registros lin vale 0
+  if [ -z "$lin" ]; then
+     lin=0
+  fi
+  res=$((1-$lin))
+  return $res
+}
+
+
+# Busca informacoes de um usuario no global catalog
+function pesquisa_ad() {
+  local server=""
+  local porta=3268
+  local dominio=""
+  local user=""
+  local pass=""
+  local tmpfile=/tmp/adsearch.tmp
+  local x=""
+  local y=""
+
+  if [ -z $1 ]; then
+    echo "(pesquisa_ad): Parametro \"login\" nao especificado"
+    exit 1
+  fi
+
+  ldapsearch -h $server -p $porta -b dc=caixa \
+  -D cn=$user,cn=Users,dc=$dominio,dc=caixa \
+  -x -w $pass \
+  sAMAccountName=$1 > $tmpfile
+
+  nome_usuario=$(cat $tmpfile | grep ^displayName | sed 's/.*: //')
+  # verifica se o nome do usuario eh valido.
+  echo $nome_usuario | egrep "==" > /dev/null 2> /dev/null
+  x=$?
+  # verifica se o nome do usuario eh valido.
+  echo "$1" | egrep "^s[0-9]{6}$" > /dev/null 2> /dev/null
+  y=$?
+  # insere nome desconhecido caso ache o "==" ou nao tenha encontrado nada.
+  if [ $x -eq 0 ]  || [ -z "$nome_usuario" ] || [ $y -eq 0 ]  ; then
+     nome_usuario="Desconhecido"
+     if [ $y -eq 0 ] || [ $x -eq 0 ]; then
+       nome_usuario="$1"
+     fi
+  fi
+  
+  cargo_usuario=$(cat $tmpfile | grep ^title | sed 's/.*: //')
+  echo $cargo_usuario | egrep "==" > /dev/null 2> /dev/null
+  x=$?
+  # verifica se o cargo do usuario eh valido.
+  echo "$1" | egrep "^s[0-9]{6}$" > /dev/null 2> /dev/null
+  y=$?
+  # insere no cargo desconhecido caso ache o "==" ou nao tenha encontrado nada.
+  if [ $x -eq 0 ]  || [ -z "$cargo_usuario" ] || [ $y -eq 0 ]; then
+     cargo_usuario="Desconhecido"
+     if [ $y -eq 0 ]; then
+       cargo_usuario="Conta de Servico"
+     fi
+  fi
+  
+  cod_unidade=$(cat $tmpfile | grep ^"extensionAttribute1:" | sed 's/^.*: //' \
+  | cut -d '-' -f 2 | cut -d ' ' -f 2)
+  
+  echo $cod_unidade | egrep "^[0-9]+$" > /dev/null 2> /dev/null
+  x=$?
+  # insere na unidade 0 caso nao seja possivel encontrar outra.
+  if [ $x -ne 0 ]; then
+    cod_unidade=0
+  fi
+  
+  nome_unidade=$(cat $tmpfile | grep ^department | sed 's/^.*: //')
+
+  echo $nome_unidade | egrep "==" > /dev/null 2> /dev/null
+  x=$?
+  # insere na unidade desconhecida caso ache o "==" ou nao tenha encontrado nada.
+  if [ $x -eq 0 ]  || [ -z "$nome_unidade" ]; then
+    nome_unidade="Desconhecido"
+  fi
+  
+  endereco_unidade=$(cat $tmpfile | grep ^streetAddress | sed 's/^.*: //')
+  email_usuario=$(cat $tmpfile | grep ^proxyAddresses | grep smtp \
+  | sed 's/^.*smtp://')
+
+  rm -f $tmpfile
+}
+
+function pesquisa_usuario() {
+  pesquisa_ad $1
+}
+
+# funcao que insere o usuario na base da dados postgreSQL do pykota.
+# trata a questao da quota de impressao.
+function insere_usuario() {
+  local teste_id
+  local group_id
+
+  # ATENCAO verifica se eh baseado no pykota 1.25 ou nos anteriores
+  versao=$(edpykota -v | sed 's/1\.\([0-9][0-9]\).*/\1/')
+  if [ $versao -ge 25 ] ; then
+    pykota="novo"
+  else
+    pykota="velho"
+  fi
+  
+  #  verifica se o usuario ja esta no banco
+  teste_id=$(echo "SELECT id FROM users  where username='${usuario}'" | \
+  psql -U postgres pykota | egrep "[[:blank:]]+[[:digit:]]+"\
+  | awk '{ print $1}')
+
+  #TODO: COLOCAR INCLUSAO DE QUOTA!
+  # executa a inclusao na base de dados do pykota
+
+  # caso o usuario ja esteja no bando da update.
+  if [ ! -z "$teste_id" ]; then
+    edpykota -a  ${usuario}
+    #Só muda o grupo se este foi passado como paramêtro!!!!
+    if [ -z "$c_grupo" ]; then
+      # pega o groupid do grupo em questao
+      group_id=$(echo "select id from groups where groupname='$grupo'" \
+      | psql -U postgres pykota | egrep "[[:blank:]]+[[:digit:]]+"  | \
+      awk '{ print $1}')
+      # atualiza a entrada na groupsmembers
+      echo "update groupsmembers set groupid=${group_id} where userid=${teste_id}" \
+      | psql -U postgres pykota
+    fi
+  else
+    if [ "$pykota" == "velho" ]; then
+      edpykota --add --ingroups $grupo ${usuario}/${email}
+    elif [ "$pykota" == "novo" ]; then
+      pkusers -a  ${usuario}/${email} 
+      pkusers -i "${grupo}"  ${usuario}
+      edpykota -a  ${usuario}
+    fi
+  fi
+}
+
+# Esta funcao insere informacoes sobre a  unidade na base de dados postgreSQL,
+# Caso a unidade ja exista na base nenhuma operacao e realizada.
+function insere_unidade() {
+  cod_ilha=0
+  SQL="INSERT INTO unidades SELECT '"${cod_unidade}"','"${nome_unidade}"','"${endereco_unidade}"','"${cod_ilha}"' WHERE NOT EXISTS (SELECT TRUE FROM unidades WHERE codunidade = '"${cod_unidade}"');"
+  echo $SQL | psql -U pykotaadmin pykota
+}
+
+function insere_nome_completo_usuario() {
+  SQL="UPDATE users SET nome = '"${nome_usuario}"', codunidade = '"${cod_unidade}"', description = '"${cargo_usuario}"' WHERE username like '%"${usuario}"'";
+  echo $SQL | psql -U pykotaadmin pykota
+}
+
+
+###############################################################################
+# Fluxo principal
+
+# Verifica se o edpykota foi encontrado, caso negativo a casa caiu, pois
+# a instalacao do pykota deve estar zoneada.
+if [ -z $editor_pykota ]; then
+  echo "[31;1m[FATAL] Nao foi possivel encontrar o executavel edpykota."
+  echo "Verifique se a instalacao do pykota foi feita corretamente [0m"
+  exit 1
+fi
+
+# caso nao tenham sido passados parametros chama a ajuda()
+if [ $# -lt 1 ]; then
+   ajuda
+   exit 1;
+fi
+
+
+# trata os argumentos, no caso de arqumento errado, chama a ajuda()
+while getopts "hu:g:q:e:" OPT; do
+  case "$OPT" in
+    "h") ajuda;; # exibe a ajuda
+    "u") usuario=${OPTARG};;
+    "e") email=${OPTARG};;
+    "g") grupo=${OPTARG};;
+    "q") quota=${OPTARG};;
+    "?") ajuda;;
+  esac
+done
+
+# caso o argumento com o login do usuario nao tenha sido informado
+# chama a ajuda pois esse eh um erro grave
+if [ -z $usuario ]; then
+  echo "[31;1m[ERRO] Nao foi informado o usuario.[0m"
+  ajuda
+fi
+
+# caso nao tenha sido utilizado o parametro que define o email, assume padrao
+if [ -z $email ]; then
+  echo "Assumindo email $usuario@mail.caixa"
+  email="${usuario}@mail.caixa"
+fi
+
+# caso nao tenha sido passado parametro, insere o cara no grupo padrao
+# verifica se o grupo passado invalido
+if [ -z "$grupo" ]; then
+  echo "Assumindo grupo ${grupo_padrao}"
+  grupo=$grupo_padrao
+  c_grupo=1
+else
+  # verifica se o grupo passado existe no banco
+  testa_grupo $grupo
+  if [ $? -ne  0 ]; then
+    echo "Grupo $grupo nao existe. Assumindo grupo $grupo_padrao"
+    grupo=$grupo_padrao
+  fi
+fi
+
+pesquisa_usuario $usuario
+insere_usuario
+insere_unidade
+insere_nome_completo_usuario
+#ajusta_log
+
+exit 0

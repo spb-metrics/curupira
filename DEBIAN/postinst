@@ -1,0 +1,364 @@
+#!/bin/sh -e
+
+# Script para configuracao/instalacao do Curupira
+# Versao 0.98-RCV-2 (24/05/2006)
+
+
+function status() {
+  if [ $1 -eq 0 ] ; then
+    echo "[70G[ [32;1mOK[0m ]"
+  else
+    echo "[70G[ [31;1mFALHOU[0m ]"
+  fi
+}
+
+# Altera as permissoes do arquivo /etc/postgresql/pg_hba.conf
+# para aceitar todas as conexoes
+function configura_servidor() {
+
+  if [ $1 -eq 1 ]; then
+    echo -n "Modificando as permissoes de conexï¿½ do PostgreSQL"
+    if [ $eh_versao7 -eq 7 ]; then
+       sed -i '/^[[:blank:]]*local/s/ident/trust #/' $postgres_conf
+       sed -i '/^[[:blank:]]*host/s/ident/trust #/' $postgres_conf
+       status $?
+    else # eh o 8.x
+       sed -i '/^[[:blank:]]*local/s/ident/trust #/' $postgres_conf
+       sed -i '/^[[:blank:]]*host/s/md5/trust #/' $postgres_conf
+       status $?
+    fi
+  else
+    if [ $eh_versao7 -eq 7 ]; then
+       sed -i '/^[[:blank:]]*local/s/trust #/ident/' $postgres_conf
+       sed -i '/^[[:blank:]]*host/s/trust #/ident/' $postgres_conf
+    else
+       sed -i '/^[[:blank:]]*local/s/trust #/ident/' $postgres_conf
+       sed -i '/^[[:blank:]]*host/s/trust #/md5/' $postgres_conf
+    fi
+  fi
+  echo -n "Reiniciando serviï¿½ postgresql"
+  
+  if [ $eh_versao7 -eq 7 ]; then
+     invoke-rc.d postgresql restart >/dev/null 2>/dev/null
+  else
+     invoke-rc.d postgresql-8.1 restart >/dev/null 2>/dev/null
+  fi
+  status $?
+}
+
+function povoa_pykota() {
+  local pykota_postgres=/usr/share/doc/pykota/examples/pykota-postgresql.sql.gz
+  echo -n "Criando banco de dados do PyKota"
+  zcat $pykota_postgres | $psql -h $host -U $psql_admin $banco_admin &> $logfile
+  status $?
+}
+
+
+function povoa_curupira() {
+  local update_curupira=/usr/share/curupira/templates/pykota-update2curupira.sql
+  local partial_log=/tmp/partial.log
+
+  echo -n "Inserindo tabelas do curupira no banco de dados"
+  $psql -h $host -U $psql_admin $banco_pykota < \
+  $update_curupira &> $partial_log
+  status $?
+  cat $partial_log >> $logfile
+  rm -f $partial_log
+  echo "[0;1mO log de modificacao da base de dados esta em"
+  echo "/var/log/curupira/curupira-install.log[0m"
+}
+
+
+##########
+# main() #
+##########
+echo "[2J"
+
+mkdir -p /var/cache/curupira/
+
+if [ -f /etc/pykota/pykota.conf ] ; then
+  cp -f /etc/pykota/pykota.conf /var/cache/curupira/pykota.conf_pre.curupira
+fi
+
+if [ -f /etc/apache2/httpd.conf ] ; then
+  cp -f /etc/apache2/httpd.conf /var/cache/curupira/httpd.conf_pre.curupira
+fi
+
+if [ -f /etc/ssl/openssl.cnf ] ; then
+  mv /etc/ssl/openssl.cnf /var/cache/curupira/openssl.cnf_pre.curupira
+fi
+
+###############################################################################
+# CRIA-BANCO-CURUPIRA
+###############################################################################
+
+host="localhost"
+data=$(date +%s)
+
+# Definicoes de variaveis relacionadas ao banco
+
+# detecta a versao do postgres, por ser um backports (8.1)
+# as coisas nao sao como deveriam ser...
+psql=$(which psql)
+eh_versao7=$(/usr/bin/psql -V | grep "^p" | cut -d " " -f 3 | egrep "^7" | cut -d "." -f 1)
+if [ -z  $eh_versao7 ]; then
+  eh_versao7=8
+fi
+
+if [ $eh_versao7 -eq 7 ]; then
+   postgres_conf=/etc/postgresql/pg_hba.conf
+else
+   postgres_conf=/etc/postgresql/8.1/main/pg_hba.conf
+fi
+psql_admin="postgres"
+banco_pykota="pykota"
+banco_admin="template1"
+
+# Log de instalacao do curupira
+logfile=/var/log/curupira/curupira-install.log
+
+configura_servidor 1
+povoa_pykota
+povoa_curupira
+#configura_servidor 0
+
+
+
+###############################################################################
+#CONF-CURUPIRA
+###############################################################################
+
+
+host_curupira="localhost;"
+home_curupira=/var/www/curupira
+
+psql_user="pykotaadmin;"
+psql_password="pykota;"
+psql_dbname="pykota;"
+
+conf_curupira=${home_curupira}/conf/curupira.conf
+conf_pykota=/etc/pykota/pykota.conf
+conf_samba=/etc/samba/smb.conf
+backend="pgstorage"
+
+
+# muda_campo $separador $arquivo $campo $valor
+function muda_campo() {
+  local separador=$1
+  local arquivo_modif=$2
+  local campo=$3
+  local valor=$4
+  
+  sed -i "/^${campo}/s/${separador}.*\$/${separador}${valor}/" $arquivo_modif
+}
+
+function altera_dados() {
+  muda_campo "=" $conf_curupira "usuario" $psql_user
+  muda_campo "=" $conf_curupira "senha"   $psql_password
+  muda_campo "=" $conf_curupira "banco"   $psql_dbname
+  muda_campo "=" $conf_curupira "host"    $host_curupira
+}
+
+function altera_policy() {
+  linha_alteracao=`grep -v -n "[:blank:]*#" $conf_pykota | grep "policy:" | \
+  cut -d : -f 1`
+  policy="policy: external(/etc/pykota/insere-usuario -u %(username)s > \
+  /dev/null)"
+
+  if [ -z $linha_alteracao ]; then
+    echo "[31;1mO campo 'policy' no arquivo de configuracao do PyKota esta\
+    faltando. Para que o Curupira funcione corretamente, adicione a seguinte \
+    politica no arquivo /etc/pykota/pykota.conf:"
+    echo
+    echo "policy: external(/etc/pykota/script-insercao-curupira %(username)s \
+    > /dev/null)"
+  else
+    sed -i "${linha_alteracao}a ${policy}" $conf_pykota
+    sed -i "${linha_alteracao}d" $conf_pykota
+  fi
+}
+
+function altera_backend() {
+  muda_campo ":" $conf_pykota "storagebackend" " ${backend}"
+}
+
+function altera_debug() {
+  muda_campo ":" $conf_pykota "debug" " No"
+}
+
+function altera_accounter() {
+  muda_campo ":" $conf_pykota "accounter" " hardware(snmp)"
+}
+
+function altera_utolower() {
+  muda_campo ":" $conf_pykota "utolower" " Yes"
+}
+
+function descomenta_striptitle() {
+  sed -i "/striptitle/s/^#[[:blank:]]*//" $conf_pykota
+}
+
+function altera_winbindseparator() {
+  # Busca o separador no arquivo do samba
+  local separador=`grep 'winbind[[:blank:]]+separator' $conf_samba \
+  | sed 's/.*=[[:blank:]]*//'`
+  # Verifica se ta comentado
+  local smb_comentado=`echo $separador | grep '^[[:blank:]]*#'`
+  # Alteracao no arquivo do pykota
+  local linha_alteracao=`grep -n 'winbind_separator[[:blank:]]*:' $conf_pykota\
+  | cut -d : -f 1`
+  
+  # "winbind separator" nao ta comentada no arquivo do samba: modifica com 
+  # o separador definido. Senao utiliza o padrao (\)
+  if [ -z $separador ] ; then 
+    separador='\\\'
+  fi
+  
+  # TODO: Resolver o problema de quando o separador nao for o '\'
+  if [ -z $smb_comentado ]; then
+    sed -i "${linha_alteracao}a winbind_separator: \\\ " $conf_pykota
+  else
+    sed -i "${linha_alteracao}a winbind_separator: \\\ " $conf_pykota
+  fi
+  sed -i "${linha_alteracao}d" $conf_pykota
+}
+
+
+function altera_pykota() {
+  echo -n "Fazendo as alteraï¿½es necessï¿½ias nas configuraï¿½es do PyKota"
+  altera_policy
+  altera_backend
+  altera_accounter
+  altera_utolower
+  descomenta_striptitle
+  altera_winbindseparator
+  sleep 0.5
+  status 0
+}
+
+
+##########################
+# Configuracao do Apache #
+##########################
+
+function cria_certificados() {
+
+  local dir_base_certs=/etc/apache2/ssl
+  if ! [ -d $dir_base_certs ] ; then
+    mkdir $dir_base_certs
+  fi
+  cd $dir_base_certs
+
+  # Alterando arquivos de configuracao do SSL
+  cp -f /usr/share/curupira/templates/openssl.cnf /etc/ssl/openssl.cnf
+  linha=$(grep -n commonName_max /etc/ssl/openssl.cnf | cut -d ":" -f 1)
+  sed -i "${linha}a commonName_default\t\t= $(hostname --fqdn)"  /etc/ssl/openssl.cnf
+
+
+  # Alterando arquivo de configuracao do APACHE2
+  sslconf=$(sed -n '/Listen[[:blank:]]\+443/p' /etc/apache2/ports.conf)
+  if [ "$sslconf" = "" ] ; then
+    echo "Listen 443" >> /etc/apache2/ports.conf
+  fi
+
+  # Criacao da chave de requisicao
+  openssl req -new > curupira.csr
+  # Criando uma chave RSA sem senha
+  openssl rsa -in privkey.pem -out curupira.key
+  # Convertendo a requisicao em um certificado assinado valido por 1 ano
+  openssl x509 -in curupira.csr -out curupira.cert -req -signkey curupira.key \
+  -days 365
+}
+
+function trata_virtual_host() {
+  local linha=$1
+  local comentada=$2
+  local arquivo=$3
+  local porta=$4
+  
+  # A linha nao existe -> insere ela no arquivo
+  if [ "$linha" = "" ]; then
+    echo "NameVirtualHost ${ip}:${porta}" >> $arquivo
+    echo "[0;1m$arquivo: verifique entrada para porta $porta[0m"
+  # A linha existe e ta ¿½comentada -> descomenta
+  elif [ "$2" != "" ]; then
+    local linha_troca=`echo $1 | cut -d : -f 1`
+    sed -i "${linha_troca}s/^[#[:blank:]]*//g" $3
+  fi
+}
+
+function cria_virtualhost() {
+  local conf_virtualhost=/etc/apache2/conf.d/virtual_host.conf
+  local apache_curupira=/etc/apache2/sites-available/curupira
+  # O comando route resolve o problema da interface padrao
+  local iface=`route -n | grep ^0.0.0.0 | awk '{print $8}'`
+  local ip=`ifconfig $iface | grep -i "inet end" | awk '{print $3}'` 
+  local uf=`hostname | sed 's/[0-9].*//g'`
+  local cgc=`hostname | sed 's/[a-zA-Z]*//;s/[a-zA-Z].*//'`
+  
+  if [ -f $conf_virtualhost ]; then
+    listen80=`grep -n "NameVirtualHost[[:blank:]][[:blank:]]*${ip}:80"  \
+    $conf_virtualhost` || true
+    listen443=`grep -n "NameVirtualHost[[:blank:]][[:blank:]]*${ip}:443" \
+    $conf_virtualhost` || true
+
+    # Assim o postinst eh abandonado e a instalacao falha
+    comentado80=`echo $listen80 | grep ":[[:blank:]]*#"` || true
+    comentado443=`echo $listen443 | grep ":[[:blank:]]*#"` || true
+    
+    # A linha existe e ta certa, existe e ta comentada ou nao existe
+    trata_virtual_host "${listen80}" "${comentado80}" $conf_virtualhost 80
+    trata_virtual_host "${listen443}" "${comentado443}" $conf_virtualhost 443
+  else
+    touch $conf_virtualhost
+    echo "NameVirtualHost ${ip}:80"  >> $conf_virtualhost
+    echo "NameVirtualHost ${ip}:443" >> $conf_virtualhost
+  fi
+
+  # Muda o IP, CGC e UF no arquivo curupira.conf que define o virtualhost
+  sed -i "s/[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}:/${ip}:/" \
+  $apache_curupira 
+  sed -i "s/curupira[0-9]\{4\}.[a-zA-Z]\{2\}/curupira${cgc}.${uf}/" \
+  $apache_curupira
+  cria_certificados
+}
+
+function cria_links() {
+  a2ensite curupira
+  a2enmod php5
+  a2enmod ssl
+  a2enmod auth_pam
+  ln -s -f /usr/share/curupira/scripts/insere-usuario /etc/pykota/
+  ln -s -f /usr/share/curupira/scripts/insere-impressora /etc/pykota/
+}
+
+function conclui_instalacao() {
+#permite usuario www-data usar sudo para os scripts de inclusao
+  echo "www-data ALL= NOPASSWD: /etc/pykota/insere-impressora" >> /etc/sudoers
+  echo "www-data ALL= NOPASSWD: /etc/pykota/insere-usuario" >>  /etc/sudoers
+#configura o php para nao imprimir erros ou warnings
+  sed -i 's/^\(error_reporting[[:blank:]][[:blank:]]*=\).*/\1 0/' /etc/php5/apache2/php.ini
+  sed -i "s/;*\(default_charset *=\).*/\1 UTF-8/" /etc/php5/apache2/php.ini
+  sed -i "s/;*\(memory_limit *=\).*/\1 64M/" /etc/php5/apache2/php.ini
+  sed -i "s/;*\(display_errors *=\).*/\1 Off/" /etc/php5/apache2/php.ini
+  sed -i "s/;*\(display_startup_errors *=\).*/\1 Off/" /etc/php5/apache2/php.ini
+  sed -i "s/;*\(log_errors *=\).*/\1 Off/" /etc/php5/apache2/php.ini
+
+  echo -n "[32mReiniciando o servico Apache2[0m"
+  invoke-rc.d apache2 restart >/dev/null 2>/dev/null
+  status $?
+  echo
+  echo "[0;1mInstalacao concluida[0m"
+}
+
+
+##########
+# main() #
+##########
+
+altera_dados
+altera_pykota
+altera_debug
+cria_virtualhost
+cria_links
+conclui_instalacao

@@ -1,0 +1,6 @@
+#!/bin/sh
+
+limpa_diretorios() {
+  rm -rf /var/log/curupira/*.*
+  rm -rf /var/cache/curupira/*.*
+}

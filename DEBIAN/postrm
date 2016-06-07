@@ -1,0 +1,30 @@
+#!/bin/bash
+
+. /usr/share/debconf/confmodule
+
+db_input medium curupira/desinstalado || true
+db_go
+
+function status() {
+  if [ $1 -eq 0 ] ; then
+    echo "[70G[ [32;1mOK[0m ]"
+  else
+    echo "[70G[ [31;1mFALHOU[0m ]"
+  fi
+}
+
+function backup_files() {
+  cp -f /etc/pykota/pykota.conf /var/cache/curupira/pykota.conf_post.curupira
+  cp -f /etc/apache2/httpd.conf /var/cache/curupira/httpd.conf_post.curupira
+  rm -rf /etc/apache2/ssl/curupira.*
+}
+
+function undo_links() {
+  echo -n Desfazendo links: 
+  rm /etc/pykota/insere-impressora && rm /etc/pykota/insere-usuario
+  status $?
+}
+
+backup_files
+undo_links
+db_purge

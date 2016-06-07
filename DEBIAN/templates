@@ -1,0 +1,41 @@
+Template: curupira/aviso-postgre
+Type: note
+Description: Curupira
+ Modificando as permissoes de conexao do PostgreSQL.
+
+Template: curupira/aviso-pykota
+Type: note
+Description: Curupira
+ Criando banco de dados do Pykota.
+
+Template: curupira/aviso-curupira
+Type: note
+Description: Curupira
+ Inserindo tabelas do curupira no banco de dados.
+
+Template: curupira/log-modificacao
+Type: note
+Description: Curupira
+ O log de modificacao da base de dados esta em
+ /var/log/curupira/curupira-install.log
+
+Template: curupira/pykota-politica-indefinida
+Type: note
+Description: Curupira
+ O campo 'policy' no arquivo de configuracao do Pykota esta faltando.
+ Para que o Curupira funcione corretamente, adicione a seguinte politica
+ no arquivo /etc/pykota/pykota.conf:
+ .
+ policy: external(/etc/pykota/script-insercao-curupira %(username)s > /dev/null)
+
+Template: curupira/alterando-pykota
+Type: note
+Description: Curupira
+ Fazendo as alteracoes necessarias nas configuracoes do Pykota
+
+Template: curupira/desinstalado
+Type: note
+Description: Curupira
+ Pacote do Curupira desinstalado com sucesso
+ Os arquivos de configuracao modificados se encontram na pasta
+ /var/cache/curupira.

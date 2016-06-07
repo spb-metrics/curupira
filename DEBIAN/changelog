@@ -1,0 +1,7 @@
+curupira (1.4.0) stable; urgency=low
+
+  * Utilizaando php5, postgresql 8, JpGraph 2 e apache 2
+  * Busca informacoes para usuarios desconhecidos
+  * Correcao acentuacoes
+ 
+ -- Daniel Andrade <p523496@mail.caixa> Wed, 10 Apr 2006 09:20:00 -0300

@@ -1,0 +1,25 @@
+# Configuracao do curupira para o Apache2
+
+<VirtualHost 000.000.000.000:80>
+  servername curupira0000.XX.caixa
+  DocumentRoot /var/www/curupira
+  DirectoryIndex index.php
+</VirtualHost>
+
+<VirtualHost 000.000.000.000:443>
+  servername curupira0000.XX.caixa
+  DocumentRoot /var/www/curupira
+  SSLEngine on
+  SSLCertificateFile /etc/apache2/ssl/curupira.cert
+  SSLCertificateKeyFile /etc/apache2/ssl/curupira.key
+  SetEnvIf User-Agent ".*MSIE.*" nokeepalive ssl-uclean-shutdown
+
+  # Autenticacao d eusuarios
+  <Location "/login.php" >
+    AuthName "Utilize DOMINIO\matricula da rede e a senha para a autenticacao."
+    AuthType Basic
+    AuthPAM_Enabled on
+    AuthBasicAuthoritative Off
+    Require valid-user
+  </Location>
+</VirtualHost>

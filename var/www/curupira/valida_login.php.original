@@ -1,0 +1,27 @@
+<?PHP
+Session_start();
+include('inc/conn.php');
+
+$Login = $_SESSION["matricula"];
+$SQL = pg_query("SELECT id, username, codunidade FROM users WHERE username = '".$Login."'");
+$rs = pg_fetch_row($SQL);
+
+if (!empty($rs[0]))
+{
+	$_SESSION["userid"] = $rs[0];
+	$_SESSION["login"] = $rs[1];
+	//$_SESSION["username"] = "NomeUsuario";
+	//Pegando a unidade do usuario
+	$_SESSION["uni"]=$rs[2];
+	if($_SESSION["perfil"] == 6)
+		header("location: relimpressoras.php");
+	else
+		header("location: relunidades.php");
+}
+else
+{
+	echo "<script language=\"javascript\">";
+	echo "alert('Usuário não encontrado: ".$Login.", Faça uma primeira impressão para ser cadastrado no sistema.');";
+	echo "</script>";
+}
+?>

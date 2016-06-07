@@ -1,0 +1,106 @@
+#!/bin/bash
+
+DOMINIO=`echo $2|tr [a-z] [A-Z]`
+USUARIO=`echo $1|tr [A-Z] [a-z]`
+
+# Arquivo servidores2 possui uma relação de servidores PDC para
+# toda a árvore CAIXA, apesar da consulta ser possivel apontando para os DCs ou GCs
+# em alguns casos tivemos problemas com as contas de usuários.
+#
+#SERVIDOR=`cat ./servidores2 | grep -v "#" |grep ${DOMINIO} |cut -f2 -d'='`
+SERVIDOR="" 
+# USR=Informe_Login_de_conta_Serviço
+USR=""
+# PWS=Informe_senha_do_usuario_anterior
+PWS=""
+# DOM=Informe_Dominio_NT_da Conta_de_Serviço_Anterior
+DOM=""
+
+# echo $DOMINIO
+# echo $USUARIO
+# echo $SERVIDOR
+
+if [ "${DOMINIO}" == "BH_AGENCIALIVRE" ]; then
+    if [ "a${PWS}" == "a" ]; then
+        ldapsearch -x -b dc=${DOMINIO},dc=livre -D cn=${USR},cn=Users,dc=${DOM},dc=livre -h ${SERVIDOR} "sAMAccountName=${USUARIO}" > /tmp/file-${USUARIO}.tmp
+    else
+	ldapsearch -w ${PWS} -x -b dc=${DOMINIO},dc=livre -D cn=${USR},cn=Users,dc=${DOM},dc=livre -h ${SERVIDOR} "sAMAccountName=${USUARIO}" > /tmp/file-${USUARIO}.tmp
+    fi;
+else
+    if [ "a${PWS}" == "a" ]; then
+        ldapsearch -x -b dc=${DOMINIO},dc=caixa -D cn=${USR},cn=Users,dc=${DOM},dc=caixa -h ${SERVIDOR} -p 3268 "sAMAccountName=${USUARIO}" > /tmp/file-${USUARIO}.tmp
+    else
+        ldapsearch -w ${PWS} -x -b dc=${DOMINIO},dc=caixa -D cn=${USR},cn=Users,dc=${DOM},dc=caixa -h ${SERVIDOR} -p 3268 "sAMAccountName=${USUARIO}" > /tmp/file-${USUARIO}.tmp
+    fi;
+fi;
+#echo "ldapsearch -w ${PWS} -x -b dc=${DOMINIO},dc=caixa -D cn=${USR},cn=Users,dc=${DOM},dc=caixa -h ${SERVIDOR} sAMAccountName=${USUARIO}"
+
+FULL=`cat /tmp/file-${USUARIO}.tmp |grep displayName:|cut -f2 -d:`
+DEPTO=`cat /tmp/file-${USUARIO}.tmp |grep department:|cut -f2 -d:`
+TITULO=`sed -n "s/^title: //p" /tmp/file-${USUARIO}.tmp `
+EMAIL=`sed -n "s/^mail: //p" /tmp/file-${USUARIO}.tmp `
+TELEFONE=`sed -n "s/^telephoneNumber: //p" /tmp/file-${USUARIO}.tmp `
+COD_UNIDADE=`cat /tmp/file-${USUARIO}.tmp |grep extensionAttribute1:|cut -f2 -d:`
+NOME_UNIDADE=`cat /tmp/file-${USUARIO}.tmp |grep department:|cut -f2 -d:`
+END_UNIDADE=`cat /tmp/file-${USUARIO}.tmp |grep streetAddress:|cut -f2 -d:`
+
+for i in `cat /tmp/file-${USUARIO}.tmp |\
+	grep memberOf:|cut -f2 -d:|sed s'/ /_/g'|cut -f1 -d,|cut -f2 -d=`
+   do
+      GRUPO=`echo ${i}|sed s'/_/ /g'`
+      [ "x$GRUPOS" = x ] && GRUPOS=$GRUPO || GRUPOS=$GRUPOS,$GRUPO
+   done
+
+rm -f /tmp/file-${USUARIO}.tmp
+
+COD_UNIDADE=`echo $COD_UNIDADE |cut -f2 -d"-" |sed s'/ //'`
+[ "x$COD_UNIDADE" = x ] && COD_UNIDADE=0000
+[ "x$FULL" = x ] && FULL=$USUARIO
+
+case $3 in
+'matricula')
+      	echo ${USUARIO}
+      	;;
+
+'fullname')
+      	echo ${FULL}
+      	;;
+
+'titulo')
+      	echo ${TITULO}
+      	;;
+
+'telefone')
+      	echo ${TELEFONE}
+	;;
+
+'email')
+	echo ${EMAIL}
+	;;
+
+'departamento')
+	echo ${DEPTO}
+	;;
+
+'grupo')
+	echo ${GRUPOS}
+	;;
+
+'cod_unidade'|'unidade')
+	echo ${COD_UNIDADE}
+	;;
+
+'nome_unidade')
+	echo ${NOME_UNIDADE}
+	;;
+
+'end_unidade')
+	echo ${END_UNIDADE}
+	;;
+
+*)
+	echo ${FULL}:${UNIDADE}:${GRUPOS}
+	echo ${DEPTO}:${EMAIL}:${TELEFONE}
+	;;
+esac;
+

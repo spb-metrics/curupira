@@ -1,0 +1,66 @@
+body
+{
+ font-size: 10pt;
+ font-family: 'Arial';
+ font-style: normal;
+ font-weight: normal;
+ color: #000000;
+ text-decoration: none;
+ margin: 5px 5px 5px 5px;
+ background-color: #ffffff;
+}
+
+hr
+{
+ color: #000000
+}
+
+h1
+{
+ font-size: 16pt;
+ font-family: 'MS Sans Serif';
+ color: #ffffff;
+ background: #9fbed0;
+ margin: 0px 0px 0px 0px;
+ text-align:right;
+}
+
+h2
+{
+ text-align:left;
+ page-break-after: avoid;
+ margin: 0px 0px 0px 0px;
+ font-size: 14pt;
+}
+
+h3
+{
+ text-align:left;
+ page-break-after: avoid;
+ margin: 0px 0px 0px 0px;
+ font-size: 12pt;
+ color:#d0d0d0;
+}
+
+a
+{
+ color: #008000;
+ text-decoration: underline;
+ font-family: 'Arial';
+ font-style: italic;
+}
+
+p
+{
+ text-align: justify;
+ text-indent: 15px;
+ margin: 10px 10px 10px 10px;
+ width: 90%;
+}
+
+.fim
+{
+ width:100%;
+ margin: 0px 0px 0px 0px;
+ background: #e4e4e4;
+}

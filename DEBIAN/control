@@ -1,0 +1,11 @@
+Package: curupira
+Priority: extra
+Section: contrib/admin
+Installed-Size: 5848 
+Depends: postgresql-8.1, apache2-common | apache2.2-common, apache2, openssl, libapache2-mod-auth-pam, php5, php5-ldap, libapache2-mod-php5, php5-pgsql, php5-gd, ldap-utils, pykota, pkpgcounter, pkipplib, python-module-pysnmp, sudo, samba, winbind
+Conflicts:  sigim, apache, apache-common, php4
+Maintainer: daniacs@gmail.com
+Architecture: all
+Version: 1.4.17
+Description: Sistema Gerenciador de Impressao (CURUPIRA):
+ Sistema WEB para gerenciamento de imprecao e gecacao de relatorios.

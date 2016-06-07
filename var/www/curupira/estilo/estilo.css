@@ -1,0 +1,127 @@
+BODY {
+	OVERFLOW-Y: auto! important; FONT-WEIGHT: normal; FONT-SIZE: 10pt; BACKGROUND-IMAGE: url('../imagens/fundo_principal.jpg'); OVERFLOW-X: auto! important; MARGIN: 0px; COLOR: #000000; FONT-STYLE: normal; FONT-FAMILY: Verdana
+}
+.Cab {
+	BORDER-RIGHT: #6487dc 0px solid; PADDING-RIGHT: 5px; BORDER-TOP: #6487dc 0px solid; MARGIN-TOP: 12px; PADDING-LEFT: 5px; FONT-WEIGHT: bold; MARGIN-BOTTOM: 12px; PADDING-BOTTOM: 5px; BORDER-LEFT: #6487dc 0px solid; COLOR: #666666; PADDING-TOP: 5px; BORDER-BOTTOM: #6487dc 0px solid; BACKGROUND-COLOR: #D9D9FF
+}
+.Cab TD {
+	FONT-SIZE: 10pt; TEXT-ALIGN: center
+}
+.Tab {
+	BORDER-RIGHT: #ffffff 1px solid; BORDER-TOP: #ffffff 1px solid; BORDER-LEFT: #ffffff 1px solid; BORDER-BOTTOM: #ffffff 1px solid; BORDER-COLLAPSE: collapse; EMPTY-CELLS: show
+}
+.Tab TD {
+	PADDING-RIGHT: 1px; PADDING-LEFT: 1px; FONT-SIZE: 7pt; VERTICAL-ALIGN: middle; BORDER-BOTTOM: #c1cdd8 1px solid; WHITE-SPACE: nowrap; TEXT-ALIGN: left
+}
+H1 {
+	FONT-WEIGHT: bold; FONT-SIZE: 12pt; COLOR: #808080; FONT-STYLE: normal; FONT-FAMILY: Arial; TEXT-ALIGN: right; TEXT-DECORATION: none
+}
+H2 {
+	FONT-WEIGHT: bold; FONT-SIZE: 20pt; COLOR: #efa273; FONT-STYLE: normal; FONT-FAMILY: Arial; TEXT-ALIGN: left
+}
+H3 {
+	FONT-WEIGHT: bold; FONT-SIZE: 14pt; COLOR: #efa273; FONT-STYLE: normal; FONT-FAMILY: Arial; TEXT-ALIGN: left
+}
+H4 {
+	FONT-WEIGHT: bold; FONT-SIZE: 12pt; COLOR: #efa273; FONT-STYLE: normal; FONT-FAMILY: arial; TEXT-ALIGN: left
+}
+H5 {
+	FONT-WEIGHT: bold; FONT-SIZE: 12pt; COLOR: #314d94; FONT-STYLE: normal; FONT-FAMILY: arial
+}
+TABLE {
+	FONT-WEIGHT: normal; FONT-SIZE: xx-small; COLOR: #000000; FONT-STYLE: normal; FONT-FAMILY: Verdana, Arial, Helvetica, sans-serif
+}
+A:link {
+	FONT-WEIGHT: normal; FONT-SIZE: 10pt; COLOR: #0039ba; FONT-STYLE: normal; FONT-FAMILY: verdana; TEXT-DECORATION: underline
+}
+A:visited {
+	FONT-WEIGHT: normal; FONT-SIZE: 10pt; COLOR: gray; FONT-STYLE: normal; FONT-FAMILY: verdana; TEXT-DECORATION: none
+}
+A:active {
+	FONT-SIZE: 10pt; COLOR: #ff6d00; FONT-FAMILY: verdana
+}
+A:hover {
+	FONT-SIZE: 10pt; COLOR: #ff6d00; FONT-FAMILY: verdana
+}
+SELECT {
+	FONT-SIZE: 8pt; FONT-STYLE: normal; FONT-FAMILY: Verdana
+}
+INPUT {
+	FONT-SIZE: 8pt; FONT-FAMILY: Verdana
+}
+.fdom3 {
+	LINE-HEIGHT: 13pt
+}
+OPTION.selecao {
+	OVERFLOW: hidden; WIDTH: 30%
+}
+
+DIV.Titulo {
+	FONT-WEIGHT: bold; FONT-SIZE: 12pt; COLOR: #928f8f; FONT-FAMILY: Arial; TEXT-ALIGN: right
+}
+
+A.AMenuMain {
+	FONT-WEIGHT: bolder; FONT-SIZE: 8pt; COLOR: black; TEXT-DECORATION: none
+}
+A.AMenuMain:visited {
+	FONT-WEIGHT: bolder; FONT-SIZE: 8pt; COLOR: black; TEXT-DECORATION: none
+}
+A.AMenuMain:hover {
+	FONT-SIZE: 8pt; COLOR: #30498f; TEXT-DECORATION: none
+}
+DIV.MenuMain {
+	PADDING-LEFT: 20px; PADDING-TOP: 5px
+}
+
+DIV.MenuSub {
+	POSITION: absolute
+}
+
+TABLE.SubMenu {
+	BORDER-RIGHT: #cccccc 3px solid; BORDER-TOP: #cccccc 3px solid; BORDER-LEFT: #cccccc 3px solid; BORDER-BOTTOM: #cccccc 3px solid
+}
+TD.SubMenu {
+	
+}
+TABLE.SubSubMenu {
+	BORDER-RIGHT: #cccccc 2px solid; BORDER-TOP: #cccccc 2px solid; BORDER-LEFT: #cccccc 2px solid; BORDER-BOTTOM: #cccccc 2px solid; FONT-FAMILY: Verdana
+    FONT-SIZE: 8pt
+}
+TD.SubSubMenu {
+	
+}
+DIV.MenuSubSub {
+	PADDING-RIGHT: 1px; PADDING-LEFT: 1px; FONT-SIZE: 8pt; PADDING-BOTTOM: 1px; PADDING-TOP: 1px; FONT-FAMILY: Verdana; POSITION: absolute
+}
+A.AMenuSubSub {
+	FONT-SIZE: 8pt; COLOR: black; TEXT-DECORATION: none
+}
+A.AMenuSubSub:visited {
+	FONT-SIZE: 8pt; COLOR: black; TEXT-DECORATION: none
+}
+A.AMenuSubSub:hover {
+	FONT-SIZE: 8pt; COLOR: #30498f; TEXT-DECORATION: none
+}
+.Menu {
+	PADDING-LEFT: 20px; FONT-WEIGHT: bolder; FONT-SIZE: 8pt; VERTICAL-ALIGN: middle; CURSOR: hand; FONT-FAMILY: verdana
+}
+
+TH{
+	FONT-SIZE:xx-small; color:black; BACKGROUND-COLOR:#e9e9e9;  FONT-FAMILY: Verdana, Arial, Helvetica, sans-serif; align :left
+}
+
+TD{
+	VERTICAL-ALIGN: top;
+}
+
+BODY.pagina{
+	margin-left:5%; margin-right:5%; FONT-SIZE: 10pt; COLOR: #000000; FONT-STYLE: normal; FONT-FAMILY: Verdana
+}
+
+TABLE.Principal{
+	margin-left:5%; margin-right:5%; width=90%
+}
+
+.Titulo{
+	border-width=5px;border-style: double;TEXT-ALIGN:center;BORDER-COLOR: #6487dc; PADDING-RIGHT: 5px; MARGIN-TOP: 12px; PADDING-LEFT: 5px; FONT-WEIGHT: bold; width=90%; COLOR: #666666; BACKGROUND-COLOR: #D9D9FF
+}

@@ -1,0 +1,8 @@
+#! /bin/sh
+
+# verifica se o programa de backup existe
+test -x /usr/share/curupira/scripts/backup-curupira || exit 0
+
+/usr/share/curupira/scripts/backup-curupira
+
+exit 0

@@ -1,0 +1,148 @@
+#!/bin/bash
+
+. /var/www/curupira/conf/bancobkp.conf
+
+## Variaveis  (configuracoes)
+#
+### Compartilhamento
+# # Servidor SMB remoto
+# servidor="mg7435nt001"
+# # compartilhamento
+# compart="Linux"
+# # pasta
+# diretorio="teste"
+#
+# # nome do usuario com acesso ao compartilhamento (escrita)
+# usuario="s743510"
+# # dominio do usuario
+# dominio="BELOHORIZONTE"
+# # senha do usuario
+# senha=""
+#
+### arquivos // diretorios locais
+# # diretorio local p/ backups
+# dir="/root/curupira"
+ 
+### NAO MODIFIQUE NADA DAQUI PARA BAIXO!!!!
+
+# trata o nome do arquivo
+if [ -z "${nome}" ]; then
+  if [ ! -z "${HOSTNAME}" ]; then 
+    nome=${HOSTNAME}
+  else
+    nome="dump"
+  fi
+fi
+
+ # arquivo com o Log de instalacao
+ arqlog="${dir}/backup-curupira.log"
+ #arquivo com o dump (backup) do banco
+ arqdump="${nome}-curupira-$(date +%s).dat"
+ extensao=$(echo $arqdump | cut -d "." -f2 )
+
+
+# funcao que envia os dados de backup para o servidor remoto.
+function EnviaDados() {
+  local lista=$1
+  local arqtmp="/var/tmp/bkp_cur.log"
+  
+  # o smbclient nao trata caminho, por isso deve-se usar esse "artificio"
+  cd ${dir}
+  # envia o arquivo para o servidor remoto
+  smbclient //${servidor}/${compart} -W ${dominio} -U ${usuario}%${senha}  -c \
+  "prompt OFF; cd ${diretorio}; mput ${lista}" 2> ${arqtmp} > /dev/null 
+  
+  # retorna para o diretorio anterior
+  cd - 2>&1 > /dev/null
+  
+  # caso o envio nao tenha sido bem sucedido salva o resultado do envio
+  # no log.
+  if [ $? -ne 0 ]; then
+    echo -e "\n* Nao foi possivel enviar o backup do dia $(date +%d-%m-%y)." \
+    >>  ${arqlog}
+    cat ${arqtmp} >> ${arqlog}
+  else
+    echo -e "\n* O backup do dia $(date +%d-%m-%y). Foi enviado para o  
+${servidor} no compartilhamento ${compart} na pasta ${diretorio}." \
+    >>  ${arqlog}
+    cat ${arqtmp} >> ${arqlog}
+  fi
+
+  # remove o arquivo temporario
+  rm -f ${arqtemp}
+
+}
+
+
+# Funcao que gera o arquivo com o backup do banco.
+function  GeraBackup() {
+  local arqtmp="/var/tmp/bkp_cur.log"
+  
+  pg_dump  -b -C -d -v -Fc -f ${dir}/${arqdump} -U postgres pykota 2> ${arqtmp}
+  # caso o programa retorne um erro
+  if [ $? -ne 0 ]; then
+    echo -e "\n+ Nao foi possivel gerar o backup do dia $(date +%d-%m-%y)." \
+    >>  ${arqlog}
+    cat ${arqtmp} >> ${arqlog}
+  else
+    echo -e "\n+ O backup para o dia $(date +%d-%m-%y) foi salvo no 
+arquivo  ${dir}/${arqdump}" >> ${arqlog}
+  fi
+
+  # remove o arquivo temporario
+  rm -f ${arqtemp}
+     
+}
+
+# funcao que Limpa o diretorio com os arquivos de Backup, removendo os 
+# arquivos com idade superior a determinhada pelo argumento de entrada
+function LimpaBackupAntigo() {
+   # pega a data atual
+   local dataAtual=$1
+   # indice do loop
+   local t=""
+   # dias para "sobrevida" do arquivo
+   local dias=7
+   # apaga os arquivos de log com mais de dias dias.
+   local horaDaMorte=$(($dataAtual - (${dias} * 86400)))
+   # variavel que recebe a data do arquivo analizado. 
+   local data=""
+   
+   # para cada arquivo do diretorio, verifica se ele ja esta velho.
+   for t in $( ls ${dir}/*.${extensao} ); do
+     if [ -f $t ]; then
+       #correção--- o novo pacote gera separado por hifen 3 campos, sendo o ultimo o 
+       # o tempo em segundos desde o epoch.
+      data=$(echo $t | cut -d "-" -f 3 | cut -d "." -f1)
+
+     fi
+     
+     # Testa se $data é um número
+     echo ${data} | grep -E "^[[:digit:]]+$" 2>&1 > /dev/null
+
+     if [ $? -eq 0 ]; then
+       # caso o arquivo seja velho ele eh apagado sem ressentimentos.
+       if [ ${data} -le ${horaDaMorte}  ]; then
+         rm -f ${t}
+       fi
+     else
+        echo -e "\n* $(date) Data deveria conter só digitos, mas possuia letras (\"${data}\")." \
+        >>  ${arqlog}
+     fi
+   done
+}
+
+
+# Fluxo principal
+
+# caso nao exista o diretorio de Backup, cria um.
+if [ ! -d ${dir} ]; then
+  mkdir ${dir}
+fi
+
+GeraBackup
+EnviaDados ${arqdump}
+LimpaBackupAntigo "$(date +%s)"
+
+exit 0
+

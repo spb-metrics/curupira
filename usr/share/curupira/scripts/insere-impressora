@@ -1,0 +1,252 @@
+#!/bin/bash
+
+# VESAO 1.0
+# 03/04/2006
+
+
+# Devido as modificacoes realizadas no banco de dados tornou-se necessario
+# desenvolver esse script, uma vez que o pkprinters nao estava dando
+# conta do recado.
+
+###############################################################################
+# Variaves globais
+grupo_padrao='Impressoras Comuns'     # grupo padrao para as impressoras
+banco="pykota"                        # banco utilizado
+admin_banco="pykotaadmin"             # administrador do banco
+dir_log="/var/log/curupira"           # diretorio para os arquivos de log
+arquivo="curupira_impressoras.log"    # arquivo de log
+arquivo_log=${dir_log}/${arquivo}     # caminho completo
+tmp_flog="/tmp/si.log"                # arquivo temporario
+printersconf=/etc/cups/printers.conf  # arquivo de configuracao do cups.
+
+
+###############################################################################
+# Funcoes
+
+# exibe a ajuda
+function ajuda() {
+  echo " As opcoes sao:
+  -h: exibe essa ajuda
+  -c parametro: onde parametro e o custo de impressao.
+  -i parametro: onde parametro e o nome da impressora.
+  -u parametro: onde parametro e o codigo da unidade.
+  -s parametro: onde parametro e o nome do servidor.
+  -p parametro: onde parametro e o ppm da impressora.
+  -n parametro: onde parametro e o numero de serie da impressora.
+  -g parametro: onde parametro e o grupo de impressao.
+  -x parametro: onde parametro e a descricao da localizacao da impressora.
+  -d parametro: onde parametro sao as informacoes sobre o modelo da impressora.
+  -k: para impressora colorida.
+  -m: para impressora monocromatica.
+  -l: para impressora a laser.
+  -t: para impressora a jato de tinta.
+  
+  Exemplo:
+$0 -c 0,0 -i nome_impressora -u 0 -s nome_servidor -p 35 -n 1525 -g \"Impressoras Comuns\" -k -l -x \"Laboratorio Linux Gisut/BH\" -d \"Impressora modelo YZW3\"
+
+"  
+  exit 0
+}
+
+
+# insere a impressora usando a ferrameta do pykota
+function insere_impressora() {
+  /usr/bin/pkprinters --add --charge $custo_impressora $nome_impressora &> $tmp_flog
+}
+
+# insere o grupo da impressora
+function insere_grupo() {
+sql="insert into printergroupsmembers select (select id from printers where printername='"$nome_impressora"'), (select id from groups where groupname='"$grupo_impressora"') where not exists (select true from printergroupsmembers where groupid=(select id from groups where groupname='"$grupo_impressora"') and printerid = (select id from printers where printername='"$nome_impressora"'))";
+         psql -U $admin_banco $banco   << fim_comando  &> $tmp_flog-1
+	 ${sql}; 
+fim_comando
+}
+
+# insere o tipo da impressora
+function altera_impressora(){
+  if [ $laser == "sim" ]; then
+    recurso=0
+  else
+    recurso=1
+  fi
+
+  if [ $colorida == "sim" ]; then
+    cor=1
+  else
+    cor=0
+  fi
+  sql="update printers set codunidade = '"$codigo_unidade"', recurso = "$recurso", cor = "$cor", nserie = '"$nserie_impressora"', ppm = "$ppm_impressora", nomeservidor = '"$nome_servidor"', localizacao = '"$localprint"', description = '"$descricao"' where printername = '"$nome_impressora"'";
+  psql -U $admin_banco $banco  << fim_comando &> $tmp_flog-2
+ 	$sql;
+fim_comando
+}
+
+# gera o arquivo de log
+function gera_log() {
+  data=`date`
+  echo "
+  ------- Evento ---------" >> ${arquivo_log}
+  echo "($data) Insersao de Impressora ${nome_impressora}.
+  Resultado:
+  " >> ${arquivo_log}
+  echo  
+  echo "
+  /usr/bin/pkprinters --add --charge $custo_impressora $nome_impressora"\
+  >> ${arquivo_log}
+  cat $tmp_flog >> ${arquivo_log}
+
+  echo "
+  Inserindo impressora no grupo $grupo_impressora " >> ${arquivo_log}
+  cat $tmp_flog-1 >> ${arquivo_log}
+  echo -e "
+  Modificando impressora:
+  colorida: $colorida \t laser: $laser \t 
+  unidade: $codigo_unidade \t N.serie: $nserie_impressora 
+  PPM: $ppm_impressora \t Servidor: $nome_servidor" >> ${arquivo_log}
+  cat $tmp_flog-2 >> ${arquivo_log}
+  rm -f $tmp_flog $tmp_flog-1 $tmp_flog-2
+}
+
+# funcao que testa se o grupo existe no banco.
+# (recebe como parametro o grupo)
+# retorna 0 caso exista e 1 caso contrario
+function testa_grupo() {
+  local fgrupo=$1
+  local ftmpfile=/tmp/tmpfile
+  SQL="select id from groups where groupname='"$fgrupo"';"
+  psql -U pykotaadmin pykota << FIM_COMANDO > $ftmpfile
+  ${SQL};
+FIM_COMANDO
+  lin=$(cat $ftmpfile  | grep registro | cut -d "(" -f 2 | cut -d " " -f 1)
+
+  rm -f $ftmpfile
+  unset fgrupo
+  unset ftmpfile
+
+  # caso nao haja registros lin vale 0
+  if [ $lin -eq 0 ]; then
+    return 1
+  else
+    return 0
+  fi
+}
+###############################################################################
+# Fluxo principal
+
+# verifica os parametros passados
+if [ $# -lt 1 ]; then
+  echo -e "Nao foi informado parametros, indo para o modo interativo\n"
+  ajuda
+fi
+    
+
+# verifica se existe o diretorio de log
+if [ ! -d  $dir_log ]; then
+  mkdir -p $dir_log
+  echo $dir_log
+fi
+
+#FIXME: Tratar exclusividade dos parametros
+# le os argumentos da linha de comando
+while getopts "hc:i:u:s:p:n:g:x:d:kmlt" OPT; do
+  case "$OPT" in
+    "h") ajuda;; # exibe a ajuda
+    "c") custo_impressora=${OPTARG};;
+    "i") nome_impressora=${OPTARG};;
+    "u") codigo_unidade=${OPTARG};;
+    "s") nome_servidor=${OPTARG};;
+    "p") ppm_impressora=${OPTARG};;
+    "n") nserie_impressora=${OPTARG};;
+    "g") grupo_impressora=${OPTARG};;
+    "x") localprint=${OPTARG};;
+    "d") descricao=${OPTARG};;
+    "k") colorida="sim";;
+    "m") colorida="nao";;
+    "l") laser="sim";;
+    "t") laser="nao";;
+    "?") ajuda;;
+  esac
+done
+
+# testa o custo
+if [ -z $custo_impressora ]; then
+  echo "Nao foi infoado custo da impressao assumindo valor 0,00"
+  custo_impressora="0,00"
+fi
+
+# se nao passou o parametro forca
+if [ -z $nome_impressora ]; then
+  echo "Nao foi informado o nome da impressa"
+  echo -n "Informe o nome da impressora: "
+  read nome_impressora
+  echo ""
+fi
+
+# testa o codigo passado
+if [ -z $codigo_unidade ]; then
+  codigo_unidade=$(echo $nome_impressora | sed s/"^.\{2\}\([0-9]\{4\}\)pr\([0-9]\{3\}\)$"/"\1"/);
+  echo "Nao foi infomado codigo para a unidade assumindo o valor $codigo_unidade"
+fi
+
+# testa o nome do servidor
+if [ -z $nome_servidor ]; then
+  echo "Nao foi informado o nome do servidor, assumindo $(echo $HOSTNAME)"
+  nome_servidor=$(echo $HOSTNAME)
+fi
+
+# testa o ppm
+if [ -z $ppm_impressora ]; then
+  echo "Nao foi informado o PPM da impressora $nome_impressora, assumindo 0"
+  ppm_impressora=0
+fi
+
+# testa o numero de serie
+if [ -z $nserie_impressora ]; then
+  echo "Nao foi informado o numero de serie da impressora, assumindo 00000"
+  nserie_impressora=00000
+fi
+
+# testa o grupo
+if [ -z "${grupo_impressora}" ]; then
+  echo "Nao foi informado um grupo para a impressora, assunindo $grupo_padrao"
+  grupo_impressora=$grupo_padrao
+else
+  # verifica se o grupo passado existe no banco
+  testa_grupo "$grupo_impressora"
+  if [ $? -ne  0 ]; then
+    echo "Grupo $grupo nao existe. Assumindo grupo $grupo_padrao"
+    grupo=$grupo_padrao
+  fi
+fi
+
+if [ -z $colorida ]; then
+  echo "Nao foi escolhida se a impressora e colorida, assumindo monocromatica"
+  colorida="nao"
+fi
+
+if [ -z $laser ]; then
+  echo "Nao foi escolhido se a impressora e laser, assumindo que sim."
+  laser="sim"
+fi
+# testa a descricao do local da impressora
+if [ -z "$localprint" ]; then
+  localprint=$(cat $printersconf | grep $nome_impressora -A 10 | grep ^Location | cut -d " " -f 2-)
+  if [ -z "$localprint" ]; then
+     localprint="Local Padrao"
+  fi
+  echo "Nao foi informada a localizacao da impressara, assumindo $localprint"
+  
+fi
+if [ -z "$descricao" ]; then
+  descricao=$(cat $printersconf | grep $nome_impressora -A 10 | grep ^Info | cut -d " " -f 2-)
+  if [ -z "$descricao" ]; then
+     descricao="Impressora Comum"
+  fi
+  echo "Nao foi informada a descricao da impressora, assumindo $descricao".
+fi
+
+
+insere_impressora;
+altera_impressora;
+insere_grupo;
+gera_log;

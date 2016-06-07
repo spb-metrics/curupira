@@ -1,0 +1,46 @@
+Correcao de BUG:
+
+Modificacao no codigo login.php para correcao do erro que inicializava a sessao de todos os usuarios
+como sendo do nivel 4.
+
+15/02/2007 Ricardo Carlini Sperandio
+--------------------------------------------------------------------------------
+Codification: UTF-8
+
+Modificados os arquivos head.php, menu.php, foot.php por bernardo em 24/03/2006 15:45.
+
+Modificados arquivos inc/menu.php impressoes.php relunidades.php rel_impressoras.php relatorio_usuario.php impressoesu.php
+Dia 12/04/2006 14:16 por bernardo
+
+Arquivo cad_usuario.php modificado por bernardo
+Dia 12/04/2006 15:16
+
+04/01/2007 Diogo Nunes Sampaio
+--------------------------------------------------------------------------------
+Modificações generalizadas para melhor funcionamento em php5, como teste de existência de variaveis (isset() ) antes de fazer comparações ou atribuir o valor delas a outras variáveis.
+
+Uso da função que seta o fuso horario antes das funções date(), se nao o php (>= 5.1) precisa supor o fuso a partir de informações do sistema.
+
+Em colunaano.php ( e outros arquivos que usam a função foreach)
+Teste se o argumento passado existe e não é NULL
+
+Correção no SQL em detalheimp.php para pegar nome do Servidor
+
+Correção em exclui_impressora.php, adiciona uma query SQL para pegar nome da impressora, pois tinha id mas nao o nome, e a string com onome da impressora ao ser removida chegava nulo ao comando de remoção
+--------------------------------------------------------------------------------
+
+09/01/2007 Diogo Nunes Sampaio
+Utilização de UTF-8 no changelog
+Arquivo insere_impressoras.php, insere_usuario, usam 'sudo' nos scripts php
+Utilização de postgresql 8.1.4, JpGraph 2.1.4, Apache 2.0 e php 5.2
+
+Erros detectados e não corrigidos:
+Página de relatóris de Impressoras: não muda de página, erro no html/javascript
+Cadastros de Links: Php/SQL/estrutura do banco de dados: Mais de uma linha possue o mesmo id ao adicionar pelo curupira, falta de restrição de id diferentes
+--------------------------------------------------------------------------------
+
+1.4
+18/01/2007 Diogo Nunes Sampaio
+Correção dos erros de javascript/html/CSS2
+Nomeação de versão 1.3x para 1.4
+Criação de um script de "replicação"
